@@ -1,0 +1,61 @@
+name: 🎬 Render Episode
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Mùa (Season)'
+        required: true
+        default: '1'
+        type: choice
+        options: ['1', '2', '3', '4']
+      episode:
+        description: 'Tập (Episode 1-20)'
+        required: true
+        default: '1'
+      render_all:
+        description: 'Render tất cả tập đã config?'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y ffmpeg
+          pip install -r requirements.txt
+
+      - name: Generate assets
+        run: python generate_hatmit_assets.py
+
+      - name: Render episode(s)
+        run: |
+          if [ "${{ inputs.render_all }}" = "true" ]; then
+            python render_episode.py --all --output output/hatmit
+          else
+            python render_episode.py \
+              --season ${{ inputs.season }} \
+              --episode ${{ inputs.episode }} \
+              --output output/hatmit
+          fi
+
+      - name: Upload video(s)
+        uses: actions/upload-artifact@v4
+        with:
+          name: shorts-s${{ inputs.season }}e${{ inputs.episode }}
+          path: output/hatmit/*.mp4
+          retention-days: 7
