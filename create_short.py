@@ -237,7 +237,7 @@ def build_outro_clip(outro_cfg):
 
 
 # --- Main ---
-def create_youtube_short(story):
+def create_youtube_short(story, output_dir="output"):
     print(f"\n{'='*50}")
     print(f"Creating: {story['title']}")
     print(f"{'='*50}\n")
@@ -257,7 +257,6 @@ def create_youtube_short(story):
     print("\nConcatenating scenes...")
     final = concatenate_videoclips(clips, method="compose")
 
-    output_dir = "output"
     os.makedirs(output_dir, exist_ok=True)
     out_path = os.path.join(output_dir, f"{story.get('output_name', 'short')}.mp4")
 
