@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Hiệp Sĩ Hạt Mít 🌱</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f1b0f;
+    color: #e8f5e8;
+    min-height: 100vh;
+    padding-bottom: 32px;
+  }
+
+  header {
+    background: linear-gradient(135deg, #1a3d1a 0%, #2d5a2d 100%);
+    padding: 20px 16px 16px;
+    border-bottom: 2px solid #4a8c4a;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { font-size: 22px; color: #a8d5a8; letter-spacing: 0.5px; }
+  header p  { font-size: 13px; color: #6a9c6a; margin-top: 3px; }
+
+  .episodes { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+  .card {
+    background: #1a2e1a;
+    border: 1px solid #2d4d2d;
+    border-radius: 14px;
+    padding: 14px;
+    transition: border-color 0.2s;
+  }
+  .card.done  { border-color: #3d7a3d; }
+  .card.busy  { border-color: #7a6a1a; }
+  .card.error { border-color: #7a2020; }
+
+  .card-header { display: flex; align-items: flex-start; gap: 10px; }
+
+  .ep-badge {
+    background: #2d5a2d;
+    color: #8fd68f;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+
+  .ep-info { flex: 1; min-width: 0; }
+  .ep-title { font-size: 15px; font-weight: 600; color: #c8eac8; line-height: 1.3; }
+  .ep-yt    { font-size: 12px; color: #6a9c6a; margin-top: 3px; line-height: 1.3;
+              white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .actions { display: flex; gap: 8px; margin-top: 12px; }
+
+  .btn {
+    flex: 1;
+    padding: 11px 8px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn-render   { background: #2d7a2d; color: #e0ffe0; }
+  .btn-download { background: #1a5a8c; color: #e0f0ff; }
+  .btn-rerender { background: #4a3a1a; color: #ffe0a0; }
+
+  .progress-wrap { margin-top: 10px; display: none; }
+  .progress-wrap.show { display: block; }
+  .progress-bar-bg {
+    background: #0d1f0d;
+    border-radius: 8px;
+    height: 8px;
+    overflow: hidden;
+    margin-bottom: 5px;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3d9a3d, #7acc7a);
+    border-radius: 8px;
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+  .progress-msg { font-size: 12px; color: #7aaa7a; }
+
+  .file-size { font-size: 11px; color: #5a8c5a; margin-top: 4px; }
+
+  .season-label {
+    padding: 16px 16px 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #4a7a4a;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌱 Hiệp Sĩ Hạt Mít</h1>
+  <p>{{ series.subtitle }} &nbsp;·&nbsp; {{ episodes|length }} tập</p>
+</header>
+
+<div class="episodes">
+  {% set ns = namespace(cur_season=0) %}
+  {% for ep in episodes %}
+    {% if ep.season != ns.cur_season %}
+      {% set ns.cur_season = ep.season %}
+      <div class="season-label">Mùa {{ ep.season }}</div>
+    {% endif %}
+
+    <div class="card {% if ep.rendered %}done{% endif %}"
+         id="card-{{ ep.output_name }}">
+
+      <div class="card-header">
+        <span class="ep-badge">S{{ ep.season }}E{{ '%02d' % ep.episode }}</span>
+        <div class="ep-info">
+          <div class="ep-title">{{ ep.title }}</div>
+          <div class="ep-yt">{{ ep.youtube_title }}</div>
+          {% if ep.file_size %}
+            <div class="file-size">📦 {{ ep.file_size }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="progress-wrap" id="prog-{{ ep.output_name }}">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="bar-{{ ep.output_name }}"></div>
+        </div>
+        <div class="progress-msg" id="msg-{{ ep.output_name }}">Đang chuẩn bị...</div>
+      </div>
+
+      <div class="actions">
+        {% if ep.rendered %}
+          <button class="btn btn-download"
+                  onclick="download('{{ ep.output_name }}')">
+            ⬇️ Tải về
+          </button>
+          <button class="btn btn-rerender"
+                  onclick="startRender('{{ ep.output_name }}', this)">
+            🔄
+          </button>
+        {% else %}
+          <button class="btn btn-render"
+                  id="btn-{{ ep.output_name }}"
+                  onclick="startRender('{{ ep.output_name }}', this)">
+            ▶ Render tập {{ ep.episode }}
+          </button>
+        {% endif %}
+      </div>
+
+    </div>
+  {% endfor %}
+</div>
+
+<script>
+const polling = {};
+
+function download(name) {
+  window.location.href = `/download/${name}`;
+}
+
+async function startRender(name, btn) {
+  btn.disabled = true;
+
+  const res = await fetch(`/render/${name}`, { method: 'POST' });
+  if (!res.ok) {
+    btn.disabled = false;
+    alert('Lỗi khi bắt đầu render');
+    return;
+  }
+
+  const card = document.getElementById(`card-${name}`);
+  card.className = 'card busy';
+
+  const prog = document.getElementById(`prog-${name}`);
+  prog.classList.add('show');
+
+  polling[name] = setInterval(() => pollStatus(name), 1500);
+}
+
+async function pollStatus(name) {
+  const res = await fetch(`/status/${name}`);
+  const data = await res.json();
+
+  const bar = document.getElementById(`bar-${name}`);
+  const msg = document.getElementById(`msg-${name}`);
+
+  if (bar) bar.style.width = (data.progress || 0) + '%';
+  if (msg) msg.textContent = data.message || '';
+
+  if (data.status === 'done') {
+    clearInterval(polling[name]);
+    const card = document.getElementById(`card-${name}`);
+    card.className = 'card done';
+    card.querySelector('.actions').innerHTML = `
+      <button class="btn btn-download" onclick="download('${name}')">⬇️ Tải về</button>
+      <button class="btn btn-rerender" onclick="startRender('${name}', this)">🔄</button>
+    `;
+  } else if (data.status === 'error') {
+    clearInterval(polling[name]);
+    const card = document.getElementById(`card-${name}`);
+    card.className = 'card error';
+    const btn = document.getElementById(`btn-${name}`);
+    if (btn) { btn.disabled = false; btn.textContent = '⚠️ Thử lại'; }
+  }
+}
+</script>
+</body>
+</html>
